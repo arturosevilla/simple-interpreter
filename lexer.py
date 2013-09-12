@@ -28,6 +28,9 @@ class Lexer(object):
 
     def __init__(self, program):
         self.program = program.strip()
+        self.reset()
+
+    def reset(self):
         self.current = 0
         self.state = 1
 
@@ -44,6 +47,9 @@ class Lexer(object):
 
     def isspace(self, ch):
         return ch in (' ', '\t', '\n')
+
+    def isoperator(self, ch):
+        return ch in ('+', '-', '*', '/', '>', '<', '=', '!')
 
     def isalpha_(self, ch):
         ch = ch.lower()
@@ -97,8 +103,11 @@ class Lexer(object):
             self.state = 7
         elif self.isnum(ch):
             self.state = 6
+        elif self.isoperator(ch):
+            return False
         else:
             self.state = 5
+        return True
 
     def handle_state7(self):
         ch = self.program[self.current - 1]
@@ -166,7 +175,9 @@ class Lexer(object):
                     self.program[start:self.current]
                 )
             elif self.state == 6:
-                self.handle_state6()
+                if not self.handle_state6():
+                    self.unread()
+                    break
             elif self.state == 7:
                 self.handle_state7()
             elif self.state == 8:

@@ -9,6 +9,15 @@ class UnknownVariable(Exception):
         return self.variable
 
 
+class AssignmentError(Exception):
+
+    def __init__(self, message):
+        self.message = message
+
+    def __str__(self):
+        return self.message
+
+
 class Expression(object):
     def eval(self, context):
         raise NotImplementedError()
@@ -20,6 +29,17 @@ class BinaryExpression(Expression):
         self.left = left
         self.right = right
 
+
+class Assignment(BinaryExpression):
+
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+    def eval(self, context):
+        value = self.right.eval(context)
+        context[self.left.variable] = value
+        return value
 
 class SumOperation(BinaryExpression):
 
@@ -89,11 +109,13 @@ class SymbolExpression(Expression):
         return context[self.variable]
 
 
+# *S -> arith arith_rest
+# arith_rest -> = arith | epsilon
 # term -> factor factor_rest
-# factor -> num | (expr)
+# factor -> num | sym | (expr)
 # factor_rest-> * num | / num
 # factor_rest -> epsilon
-# *expr -> term term_rest
+# arith -> term term_rest
 # term_rest -> + term | - term
 # term_rest -> epsilon
 # num -> [0-9]+
@@ -129,9 +151,25 @@ class Parser(object):
         return token
     
     def parse(self):
-        return self.expr()
+        return self.S()
 
-    def expr(self):
+    def S(self):
+        token = self.arith()
+        return self.arith_rest(token)
+
+    def arith_rest(self, arith):
+        token = self.match(TokenType.OP, True)
+        if token is None:
+            return arith
+        if token.lexeme == '=':
+            return Assignment(
+                arith,
+                self.arith()
+            )
+        else:
+            raise ValueError('This should not happen!')
+
+    def arith(self):
         token = self.term()
         return self.term_rest(token)
 
@@ -191,27 +229,23 @@ class Parser(object):
                 self.term()
             )
         else:
-            raise ValueError('This should not happen!')
+            self.fallback(token)
+            return term
 
     def reset(self):
         self.lexer.reset()
+
+    def compile_ast(self):
+        return self.check_semantic(self.parse())
+
+    def check_semantic(self, ast):
+        if isinstance(ast, Assignment) and \
+           not isinstance(ast.left, SymbolExpression):
+            raise AssignmentError(
+                'Requires variable at left of the assignment'
+            )
+        return ast
     
     def eval(self, ctx):
-        return self.parse().eval(ctx)
-
-class Interpreter(object):
-
-    def __init__(self, parser):
-        self.parser = parser
-        self.context = {
-            'pi': 3.141592,
-            'e': 2.7128,
-            'g': 9.8
-        }
-
-    def reset(self):
-        self.parser.reset()
-
-    def eval(self):
-        return self.parser.eval(self.context)
+        return self.compile_ast().eval(ctx)
 

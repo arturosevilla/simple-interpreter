@@ -22,6 +22,9 @@ class TokenType(object):
     CLOSE_PARENS = 5
     OPEN_BRACES = 6
     CLOSE_BRACES = 7
+    ELSE = 8
+    WHILE = 9
+    RELOP = 10
 
 
 class Lexer(object):
@@ -85,8 +88,36 @@ class Lexer(object):
             self.state = 5
         elif ch == 'i':
             self.state = 2
+        elif ch == 'e':
+            self.state = 18
         else:
             self.state = 4
+
+    def handle_state18(self):
+        ch = self.program[self.current - 1]
+        if ch == 'l':
+            self.state = 19
+        elif self.isalpha_(ch) or self.isnum(ch):
+            self.state = 4
+        else:
+            self.state = 5
+    def handle_state19(self):
+        ch = self.program[self.current - 1]
+        if ch == 's':
+            self.state = 20
+        elif self.isalpha_(ch) or self.isnum(ch):
+            self.state = 4
+        else:
+            self.state = 5
+
+    def handle_state20(self):
+        ch = self.program[self.current - 1]
+        if ch == 'e':
+            self.state = 21
+        elif self.isalpha_(ch) or self.isnum(ch):
+            self.state = 4
+        else:
+            self.state = 5
 
     def handle_state2(self):
         ch = self.program[self.current - 1]
@@ -188,7 +219,15 @@ class Lexer(object):
                     break
             elif self.state == 16:
                 self.handle_state16()
-           
+            elif self.state == 18:
+                self.handle_state18()
+            elif self.state == 19:
+                self.handle_state19()
+            elif self.state == 20:
+                self.handle_state20()
+            elif self.state == 21:
+                self.handle_state3()
+
             if self.state in (9, 10, 11, 12, 13, 15, 17):
                 should_continue = False
             elif self.state != 5:
@@ -200,6 +239,8 @@ class Lexer(object):
         self.state = 1
         if exit_state == 3:
             return Token(TokenType.IF, 'if')
+        elif exit_state == 21:
+            return Token(TokenType.ELSE, 'else')
         elif exit_state == 6:
             return Token(
                 TokenType.NUM,
@@ -210,7 +251,12 @@ class Lexer(object):
                 TokenType.NUM,
                 float(self.program[start:self.current].strip())
             )
-        elif exit_state in (9, 14, 15, 17):
+        elif exit_state in (14, 15, 17):
+            return Token(
+                TokenType.RELOP,
+                self.program[start:self.current].strip()
+            )
+        elif exit_state == 9:
             return Token(
                 TokenType.OP,
                 self.program[start:self.current].strip()

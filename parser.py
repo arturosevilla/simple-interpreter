@@ -108,8 +108,24 @@ class SymbolExpression(Expression):
             raise UnknownVariable(self.variable)
         return context[self.variable]
 
+class IfExpression(Expression):
 
+    def __init__(self, cond, on_true, on_false):
+        self.cond = cond
+        self.on_true = on_true
+        self.on_false = on_false
+
+    def eval(self, context):
+        if self.cond.eval(context):
+            return self.on_true.eval(context)
+        else:
+            return self.on_false.eval(context)
+
+
+# *S -> if(expr_cond){bloque}else{bloque}
 # *S -> arith arith_rest
+# expr_cond -> factor RELOP factor
+# bloque -> asignacion | epsilon
 # arith_rest -> = arith | epsilon
 # term -> factor factor_rest
 # factor -> num | sym | (expr)
@@ -154,6 +170,33 @@ class Parser(object):
         return self.S()
 
     def S(self):
+        token = self.match(TokenType.IF, True)
+        if token is None:
+            token = self.arith()
+            return self.arith_rest(token)
+        return self.if_expr()
+
+    def if_expr(self):
+        self.match(TokenType.OPEN_PARENS)
+        expr = self.expr_cond()
+        self.match(TokenType.CLOSING_PARENS)
+        self.match(TokenType.OPEN_BRACES)
+        block = self.block()
+        self.match(TokenType.CLOSE_BRACES)
+        self.match(TokenType.ELSE)
+        self.match(TokenType.OPEN_BRACES)
+        else_block = self.block()
+        self.match(TokenType.CLOSE_BRACES)
+        return IfExpression(
+            expr,
+            block,
+            else_block
+        )
+
+    def expr_cond(self):
+        pass
+
+    def block(self):
         token = self.arith()
         return self.arith_rest(token)
 
